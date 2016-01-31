@@ -83,21 +83,17 @@ class AdminSettingsForm extends ConfigFormBase {
     ];
 
     // Choose node types that are styled.
-    // @d7 @todo $node_types = _node_types_build()->types;
-    $nt = new \stdClass();
-    $nt->name = $this->t('Test node type Name 1');
-    $node_types = [
-      'node_type_test' => $nt,
-    ];
-    $options = [];
-    foreach ($node_types as $node_machine_name => $node_type) {
-      $options[$node_machine_name] = $node_type->name;
+    $node_type_options = [];
+    $entity_type_manager = \Drupal::entityManager();
+    $bundles = $entity_type_manager->getBundleInfo('node');
+    foreach ($bundles as $bundle_id => $bundle) {
+      $node_type_options[$bundle_id] = $bundle['label'];
     }
 
     $form['advanced_forum_general']['advanced_forum_styled_node_types'] = [
       '#type' => 'select',
       '#title' => $this->t('Node types to style'),
-      '#options' => $options,
+      '#options' => $node_type_options,
       '#multiple' => TRUE,
       '#description' => $this->t('Choose which node types will have the forum style applied.'),
       // @d7 '#default_value' => variable_get('advanced_forum_styled_node_types', array('forum')),
@@ -218,22 +214,21 @@ class AdminSettingsForm extends ConfigFormBase {
 
       // @d7 @todo $forum_vocabulary = taxonomy_vocabulary_load(variable_get('forum_nav_vocabulary', 0));
       $forum_vocabulary = taxonomy_vocabulary_load($advanced_forum_general->get('forum_nav_vocabulary'));
-
-      // @todo find replacement.
-      // @d7 $field_info = field_info_instances('taxonomy_term', $forum_vocabulary->machine_name);
       $image_fields = [];
-      $field_info = [
-        'field_bundle_with_image' => [
-          'test_field_with_image' => [
-            'display' => ['default' => ['type' => 'image']]
-          ]
-        ]
-      ];
-      foreach ($field_info as $bundle => $field) {
-        if (!empty($field['display']['default']['type']) && ($field['display']['default']['type'] == 'image')) {
-          $image_fields[$bundle] = $bundle;
+
+      if ($forum_vocabulary) {
+        $bundle = $forum_vocabulary->id();
+        $entity_types = \Drupal::entityManager()->getDefinitions();
+        $entity_type = $entity_types['taxonomy_term'];
+        $field_info = field_entity_bundle_field_info($entity_type, $bundle);
+
+        foreach ($field_info as $bundle => $field) {
+          if ($field->getType() == 'image') {
+            $image_fields[$bundle] = $bundle;
+          }
         }
       }
+
       $form['advanced_forum_forum_image']['advanced_forum_forum_image_field'] = [
         '#title' => $this->t('Image field'),
         '#description' => $this->t('The image field to use to display forum images.'),
